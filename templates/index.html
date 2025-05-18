@@ -1,133 +1,54 @@
 
 <!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <title>СТАТИСТИКА</title>
-    <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <style>
-        body {
-            background: url('/static/background') no-repeat center center fixed;
-            background-size: cover;
-            font-family: 'Segoe UI', sans-serif;
-        }
-        .dollar {
-            width: 70px;
-            height: 70px;
-        }
-        .roman-gold { color: gold; font-weight: bold; }
-        .roman-silver { color: silver; font-weight: bold; }
-        .roman-bronze { color: #cd7f32; font-weight: bold; }
-        .dd-bg {
-            background-image: url('/static/dd.gif');
-            background-size: contain;
-            background-repeat: no-repeat;
-            background-position: center;
-        }
-        .gta-font {
-            text-shadow: 2px 2px 0 #fff, -2px 2px 0 #fff, 2px -2px 0 #fff, -2px -2px 0 #fff;
-            font-family: 'Black Ops One', cursive;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-        td, th {
-            color: black;
-            padding: 12px 16px;
-        }
-        
-    </style>
-</head>
-<body class="text-center p-8 text-xl">
-    <div class="flex justify-center items-center space-x-6 mb-10">
-        <img src="/static/dollar.gif" class="dollar" alt="dollar">
-        <h1 class="text-5xl font-extrabold gta-font">СТАТИСТИКА</h1>
-        <img src="/static/dollar.gif" class="dollar" alt="dollar">
-    </div>
-
-    <div id="table-container" class="w-full px-6"></div>
-
-    {% if user == 'admin' %}
-    <form id="add-form" class="mt-12 space-y-4 text-lg">
-        <input type="text" name="name" placeholder="Имя" required class="border px-4 py-2 w-72">
-        <input type="number" name="cash" placeholder="Кэш ₽" required class="border px-4 py-2 w-72">
-        <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded shadow">Добавить</button>
-    </form>
-    {% endif %}
-
-    <div class="mt-10 text-lg">
-        {% if user %}
-            <a href="/logout" class="text-blue-700 underline">Выйти</a>
-        {% else %}
-            <a href="/login" class="text-blue-700 underline">Вход для администратора</a>
-        {% endif %}
-    </div>
-
-<script>
-function toRoman(n) {
-    const romans = ["Ⅰ", "Ⅱ", "Ⅲ", "Ⅳ", "Ⅴ", "Ⅵ", "Ⅶ", "Ⅷ", "Ⅸ", "Ⅹ"];
-    return romans[n - 1] || n;
-}
-
-async function loadData() {
-    const res = await fetch("/data");
-    const data = await res.json();
-    let html = '<table class="w-full max-w-7xl mx-auto bg-white bg-opacity-80 shadow-2xl rounded text-2xl"><thead><tr class="bg-gray-300"><th>Место</th><th>Имя</th><th>Кэш</th><th>Баллы</th>{% if user == "admin" %}<th>Удалить</th>{% endif %}</tr></thead><tbody>';
-    data.forEach((item, i) => {
-        const roman = toRoman(item.place);
-        const colorClass = i === 0 ? "roman-gold" : i === 1 ? "roman-silver" : i === 2 ? "roman-bronze" : "";
-        const placeCell = `<td class="${colorClass} ${i === 0 ? 'dd-bg' : ''}">${roman}</td>`;
-        html += `<tr class="border-b">
-            ${placeCell}
-            <td>${item.name}</td>
-            <td>${item.cash} ₽</td>
-            <td>${item.points}</td>
-            {% if user == "admin" %}
-            <td><button onclick="deleteItem(${item.id})" class="text-red-600 hover:underline">Удалить</button></td>
-            {% endif %}
-        </tr>`;
-    });
-    html += "</tbody></table>";
-    document.getElementById("table-container").innerHTML = html;
-}
-
+<html>
+<head><meta charset="utf-8"><title>СТАТИСТИКА</title></head>
+<body>
+<h1>СТАТИСТИКА</h1>
+<div id="table-container"></div>
 {% if user == 'admin' %}
-document.getElementById("add-form").addEventListener("submit", async (e) => {
+<form id="add-form">
+    <input type="text" name="name" placeholder="Имя" required>
+    <input type="number" name="cash" placeholder="Кэш" required>
+    <button type="submit">Добавить</button>
+</form>
+{% endif %}
+<script>
+async function loadData() {
+    const r = await fetch("/data");
+    const d = await r.json();
+    let h = "<table border=1><tr><th>Место</th><th>Имя</th><th>Кэш</th><th>Баллы</th>{% if user == 'admin' %}<th>Удалить</th><th>Редактировать</th>{% endif %}</tr>";
+    d.forEach(u => {
+        h += `<tr><td>${u.place}</td><td>${u.name}</td><td>${u.cash}</td><td>${u.points}</td>
+        {% if user == 'admin' %}
+        <td><button onclick="deleteItem(${u.id})">Удалить</button></td>
+        <td><form onsubmit="return editItem(${u.id})">
+            <input id="n${u.id}" value="${u.name}"><input id="c${u.id}" value="${u.cash}" type="number">
+            <button>Сохранить</button></form></td>{% endif %}</tr>`;
+    });
+    h += "</table>";
+    document.getElementById("table-container").innerHTML = h;
+}
+{% if user == 'admin' %}
+document.getElementById("add-form").addEventListener("submit", async e => {
     e.preventDefault();
-    const formData = new FormData(e.target);
-    await fetch("/add", { method: "POST", body: formData });
-    e.target.reset();
-    loadData();
+    const f = new FormData(e.target);
+    await fetch("/add", {method: "POST", body: f});
+    e.target.reset(); loadData();
 });
-
 async function deleteItem(id) {
-    const formData = new FormData();
-    formData.append("staff_id", id);
-    await fetch("/delete", { method: "POST", body: formData });
-    loadData();
+    const f = new FormData(); f.append("staff_id", id);
+    await fetch("/delete", {method: "POST", body: f});
+    loadData(); return false;
+}
+async function editItem(id) {
+    const f = new FormData();
+    f.append("staff_id", id);
+    f.append("name", document.getElementById("n" + id).value);
+    f.append("cash", document.getElementById("c" + id).value);
+    await fetch("/edit", {method: "POST", body: f});
+    loadData(); return false;
 }
 {% endif %}
-
 loadData();
-setInterval(() => { window.location.reload(); }, 600000);
 </script>
-
-<script>
-    // автообновление
-    setInterval(() => { window.location.reload(); }, 600000);
-
-    // универсальная подстановка background
-    const extensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-    for (const ext of extensions) {
-        const img = new Image();
-        img.onload = () => {
-            document.body.style.background = `url('/static/background.${ext}') no-repeat center center fixed`;
-            document.body.style.backgroundSize = 'cover';
-        };
-        img.onerror = () => {};
-        img.src = `/static/background.${ext}`;
-    }
-</script>
-</body>
-
-</html>
+</body></html>
