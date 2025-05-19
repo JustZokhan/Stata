@@ -10,7 +10,7 @@ app.add_middleware(SessionMiddleware, secret_key='verysecretkey')
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-DB_PATH = "staff.db"
+DB_PATH = "/data/staff.db"
 
 def init_db():
     with sqlite3.connect(DB_PATH) as conn:
