@@ -1,5 +1,5 @@
 
-from fastapi import FastAPI, Request, Form, HTTPException
+from fastapi import FastAPI, Request, Form, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -10,12 +10,24 @@ app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key='verysecretkey')
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
 DB_PATH = "staff.db"
 
 def init_db():
     with sqlite3.connect(DB_PATH) as conn:
-        conn.execute('''CREATE TABLE IF NOT EXISTS staff (id INTEGER PRIMARY KEY, name TEXT, cash INTEGER)''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, password TEXT)''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS staff (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                cash INTEGER NOT NULL
+            )
+        ''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                username TEXT PRIMARY KEY,
+                password TEXT NOT NULL
+            )
+        ''')
         conn.execute("INSERT OR IGNORE INTO users (username, password) VALUES (?, ?)", ('admin', 'admin123'))
 init_db()
 
@@ -25,54 +37,54 @@ def get_user(request: Request):
 def fetch_staff():
     with sqlite3.connect(DB_PATH) as conn:
         data = conn.execute("SELECT * FROM staff ORDER BY cash DESC").fetchall()
-    return [{"id": r[0], "name": r[1], "cash": r[2], "points": round(r[2]/10000, 2), "place": i+1} for i, r in enumerate(data)]
+    return [{
+        "id": row[0],
+        "name": row[1],
+        "cash": row[2],
+        "points": round(row[2] / 10000, 2),
+        "place": i + 1
+    } for i, row in enumerate(data)]
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request, "user": get_user(request), "staff": fetch_staff()})
+    user = get_user(request)
+    ranked = fetch_staff()
+    return templates.TemplateResponse("index.html", {"request": request, "user": user, "staff": ranked})
 
 @app.get("/data")
-async def data():
+async def get_data():
     return JSONResponse(fetch_staff())
 
 @app.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request):
+async def login_get(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
 @app.post("/login")
-async def login(request: Request, username: str = Form(...), password: str = Form(...)):
+async def login_post(request: Request, username: str = Form(...), password: str = Form(...)):
     with sqlite3.connect(DB_PATH) as conn:
-        user = conn.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password)).fetchone()
-    if user:
+        result = conn.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password)).fetchone()
+    if result:
         request.session["user"] = username
-        return RedirectResponse("/", 302)
+        return RedirectResponse("/", status_code=302)
     return templates.TemplateResponse("login.html", {"request": request, "error": "Неверный логин или пароль"})
 
 @app.get("/logout")
 async def logout(request: Request):
     request.session.clear()
-    return RedirectResponse("/", 302)
+    return RedirectResponse("/", status_code=302)
 
 @app.post("/add")
-async def add(request: Request, name: str = Form(...), cash: int = Form(...)):
+async def add_staff(request: Request, name: str = Form(...), cash: int = Form(...)):
     if get_user(request) != "admin":
-        raise HTTPException(403)
+        raise HTTPException(status_code=403)
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("INSERT INTO staff (name, cash) VALUES (?, ?)", (name, cash))
     return JSONResponse({"status": "ok"})
 
 @app.post("/delete")
-async def delete(request: Request, staff_id: int = Form(...)):
+async def delete_staff(request: Request, staff_id: int = Form(...)):
     if get_user(request) != "admin":
-        raise HTTPException(403)
+        raise HTTPException(status_code=403)
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("DELETE FROM staff WHERE id=?", (staff_id,))
-    return JSONResponse({"status": "ok"})
-
-@app.post("/edit")
-async def edit(request: Request, staff_id: int = Form(...), name: str = Form(...), cash: int = Form(...)):
-    if get_user(request) != "admin":
-        raise HTTPException(403)
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("UPDATE staff SET name=?, cash=? WHERE id=?", (name, cash, staff_id))
     return JSONResponse({"status": "ok"})
