@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, Request, Form, Depends, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -19,7 +18,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS staff (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
-                cash INTEGER NOT NULL
+                points REAL NOT NULL
             )
         ''')
         conn.execute('''
@@ -36,12 +35,11 @@ def get_user(request: Request):
 
 def fetch_staff():
     with sqlite3.connect(DB_PATH) as conn:
-        data = conn.execute("SELECT * FROM staff ORDER BY cash DESC").fetchall()
+        data = conn.execute("SELECT * FROM staff ORDER BY points DESC").fetchall()
     return [{
         "id": row[0],
         "name": row[1],
-        "cash": row[2],
-        "points": round(row[2] / 10000, 2),
+        "points": row[2],
         "place": i + 1
     } for i, row in enumerate(data)]
 
@@ -74,11 +72,11 @@ async def logout(request: Request):
     return RedirectResponse("/", status_code=302)
 
 @app.post("/add")
-async def add_staff(request: Request, name: str = Form(...), cash: int = Form(...)):
+async def add_staff(request: Request, name: str = Form(...), points: float = Form(...)):
     if get_user(request) != "admin":
         raise HTTPException(status_code=403)
     with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("INSERT INTO staff (name, cash) VALUES (?, ?)", (name, cash))
+        conn.execute("INSERT INTO staff (name, points) VALUES (?, ?)", (name, points))
     return JSONResponse({"status": "ok"})
 
 @app.post("/delete")
